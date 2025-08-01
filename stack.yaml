@@ -1,0 +1,19 @@
+version: 1.0
+provider:
+  name: openfaas
+  gateway: http://127.0.0.1:8080
+functions:
+  ping:
+    lang: dockerfile
+    handler: ./ping
+    image: ttl.sh/welteki/ping:0.0.2
+
+  ndjson:
+    lang: golang-middleware
+    handler: ./ndjson
+    image: ttl.sh/welteki/ndjson:0.0.1
+    environment:
+      exec_timeout: 10m
+      write_timeout: 10m
+      read_timeout: 10m
+
