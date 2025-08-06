@@ -35,3 +35,11 @@ functions:
     environment:
       OPENFAAS_URL: http://gateway.openfaas:8080
       # OPENFAAS_URL: https://slicer-gw.exit.welteki.dev
+
+  transient-chaos:
+    lang: golang-middleware
+    handler: ./transient-chaos
+    image: ttl.sh/welteki/transient-chaos:0.0.1
+    labels:
+      com.openfaas.scale.min: "1"
+      com.openfaas.scale.max: "1"
