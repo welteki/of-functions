@@ -17,3 +17,21 @@ functions:
       write_timeout: 10m
       read_timeout: 10m
 
+  callback-counter:
+    lang: golang-middleware
+    handler: ./callback-counter
+    image: ttl.sh/welteki/callback-counter:0.0.1
+    labels:
+      com.openfaas.scale.min: "1"
+      com.openfaas.scale.max: "1"
+
+  async-load:
+    lang: golang-middleware
+    handler: ./async-load
+    image: ttl.sh/welteki/async-load:0.0.10
+    labels:
+      com.openfaas.scale.min: "1"
+      com.openfaas.scale.max: "1"
+    environment:
+      OPENFAAS_URL: http://gateway.openfaas:8080
+      # OPENFAAS_URL: https://slicer-gw.exit.welteki.dev
