@@ -43,3 +43,17 @@ functions:
     labels:
       com.openfaas.scale.min: "1"
       com.openfaas.scale.max: "1"
+
+  variable-inflight:
+    lang: golang-middleware
+    handler: ./variable-inflight
+    image: ttl.sh/welteki/variable-inflight:0.0.4
+    annotations:
+      com.openfaas.ready.http.path: "/_/ready"
+    labels:
+      com.openfaas.scale.min: "1"
+      com.openfaas.scale.max: "1"
+    environment:
+      exec_timeout: 1h
+      write_timeout: 1h1m
+      read_timeout: 1h1m
