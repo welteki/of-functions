@@ -21,6 +21,9 @@ Simulates an overloaded function that starts returning errors when inflight requ
   - `constant`: Returns 500 errors 100% of the time when over threshold
   - `intermittent`: Returns 500 errors 50% of the time when over threshold
 - `sleep_duration` (default: `100ms`): Time each request takes to process
+- `use_ready_endpoint` (default: `false`): Enable ready endpoint for load shedding
+  - When `true`, the `/_/ready` endpoint returns 503 Service Unavailable when inflight requests reach the threshold
+  - When `false`, the ready endpoint always returns 200 OK
 
 **Endpoints:**
 
@@ -29,6 +32,9 @@ Simulates an overloaded function that starts returning errors when inflight requ
   - Returns 500 Internal Server Error when overloaded
   - Accepts `X-Sleep` header to override sleep duration per request
 - `GET /_/config`: Returns current configuration and inflight request count
+- `GET /ready`: Health check endpoint (requires OpenFaaS ready check annotation)
+  - Returns 200 OK when ready (inflight < threshold) or when `use_ready_endpoint` is false
+  - Returns 503 Service Unavailable when at or above threshold (only when `use_ready_endpoint` is true)
 
 **Example Usage:**
 
@@ -56,10 +62,13 @@ curl -H "X-Sleep: 2s" http://127.0.0.1:8080/function/overload-simulator
 
 ```yaml
 overload-simulator:
+  annotations:
+    com.openfaas.ready.http.path: "/ready"  # Enable ready check
   environment:
-    inflight_threshold: "10"      # Increase threshold to 10 concurrent requests
-    failure_mode: "constant"      # Always fail when over threshold
-    sleep_duration: "500ms"       # Slower processing time
+    inflight_threshold: "10"        # Increase threshold to 10 concurrent requests
+    failure_mode: "constant"        # Always fail when over threshold
+    sleep_duration: "500ms"         # Slower processing time
+    use_ready_endpoint: "true"      # Enable ready endpoint load shedding
 ```
 
 ### variable-inflight

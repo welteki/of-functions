@@ -62,6 +62,8 @@ functions:
     lang: golang-middleware
     handler: ./overload-simulator
     image: ttl.sh/welteki/overload-simulator:0.0.1
+    annotations:
+      com.openfaas.ready.http.path: "/ready"
     labels:
       com.openfaas.scale.min: "1"
       com.openfaas.scale.max: "1"
@@ -69,3 +71,4 @@ functions:
       inflight_threshold: "5"
       failure_mode: "constant"
       sleep_duration: "100ms"
+      use_ready_endpoint: "true"

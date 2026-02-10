@@ -20,6 +20,7 @@ var (
 	// Configuration from environment variables
 	inflightThreshold int
 	failureMode       string // "constant" or "intermittent"
+	useReadyEndpoint  bool   // Enable ready endpoint for load shedding
 
 	inflight int
 	mux      = http.NewServeMux()
@@ -62,10 +63,21 @@ func init() {
 		}
 	}
 
-	log.Printf("Overload Simulator initialized with threshold=%d, mode=%s, sleep=%s",
-		inflightThreshold, failureMode, defaultDuration)
+	// Read use_ready_endpoint from environment variable
+	useReadyEndpoint = false // default value
+	if val, ok := os.LookupEnv("use_ready_endpoint"); ok && len(val) > 0 {
+		useReady, err := strconv.ParseBool(val)
+		if err != nil {
+			log.Fatalf("Error parsing use_ready_endpoint environment variable: %v", err)
+		}
+		useReadyEndpoint = useReady
+	}
+
+	log.Printf("Overload Simulator initialized with threshold=%d, mode=%s, sleep=%s, use_ready=%v",
+		inflightThreshold, failureMode, defaultDuration, useReadyEndpoint)
 
 	mux.HandleFunc("GET /_/config", getConfig)
+	mux.HandleFunc("GET /ready", getReady)
 	mux.HandleFunc("/", overloadSimulator)
 }
 
@@ -78,6 +90,7 @@ type ConfigResponse struct {
 	FailureMode       string        `json:"failure_mode"`
 	SleepDuration     time.Duration `json:"sleep_duration"`
 	CurrentInflight   int           `json:"current_inflight"`
+	UseReadyEndpoint  bool          `json:"use_ready_endpoint"`
 }
 
 func getConfig(w http.ResponseWriter, r *http.Request) {
@@ -93,10 +106,35 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 		FailureMode:       failureMode,
 		SleepDuration:     defaultDuration,
 		CurrentInflight:   currentInflight,
+		UseReadyEndpoint:  useReadyEndpoint,
 	}
 
-	fmt.Fprintf(w, `{"inflight_threshold":%d,"failure_mode":"%s","sleep_duration":"%s","current_inflight":%d}`,
-		config.InflightThreshold, config.FailureMode, config.SleepDuration, config.CurrentInflight)
+	fmt.Fprintf(w, `{"inflight_threshold":%d,"failure_mode":"%s","sleep_duration":"%s","current_inflight":%d,"use_ready_endpoint":%v}`,
+		config.InflightThreshold, config.FailureMode, config.SleepDuration, config.CurrentInflight, config.UseReadyEndpoint)
+}
+
+func getReady(w http.ResponseWriter, r *http.Request) {
+	if !useReadyEndpoint {
+		// Ready endpoint is disabled, always return ready
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "OK")
+		return
+	}
+
+	mu.Lock()
+	currentInflight := inflight
+	mu.Unlock()
+
+	// Report not ready when at or above the inflight threshold
+	if currentInflight >= inflightThreshold {
+		log.Printf("Ready check: NOT READY (inflight: %d, threshold: %d)", currentInflight, inflightThreshold)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		fmt.Fprintf(w, "Not ready: inflight=%d, threshold=%d", currentInflight, inflightThreshold)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "OK: inflight=%d, threshold=%d", currentInflight, inflightThreshold)
 }
 
 func overloadSimulator(w http.ResponseWriter, r *http.Request) {
