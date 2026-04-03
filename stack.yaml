@@ -6,12 +6,12 @@ functions:
   ping:
     lang: dockerfile
     handler: ./ping
-    image: ttl.sh/welteki/ping:0.0.2
+    image: ${REGISTRY:-ttl.sh}/${OWNER:-welteki}/ping:${TAG:-0.0.2}
 
   ndjson:
     lang: golang-middleware
     handler: ./ndjson
-    image: ttl.sh/welteki/ndjson:0.0.1
+    image: ${REGISTRY:-ttl.sh}/${OWNER:-welteki}/ndjson:${TAG:-0.0.1}
     environment:
       exec_timeout: 10m
       write_timeout: 10m
@@ -20,7 +20,7 @@ functions:
   callback-counter:
     lang: golang-middleware
     handler: ./callback-counter
-    image: ttl.sh/welteki/callback-counter:0.0.1
+    image: ${REGISTRY:-ttl.sh}/${OWNER:-welteki}/callback-counter:${TAG:-0.0.1}
     labels:
       com.openfaas.scale.min: "1"
       com.openfaas.scale.max: "1"
@@ -28,7 +28,7 @@ functions:
   async-load:
     lang: golang-middleware
     handler: ./async-load
-    image: ttl.sh/welteki/async-load:0.0.10
+    image: ${REGISTRY:-ttl.sh}/${OWNER:-welteki}/async-load:${TAG:-0.0.10}
     labels:
       com.openfaas.scale.min: "1"
       com.openfaas.scale.max: "1"
@@ -39,7 +39,7 @@ functions:
   transient-chaos:
     lang: golang-middleware
     handler: ./transient-chaos
-    image: ttl.sh/welteki/transient-chaos:0.0.1
+    image: ${REGISTRY:-ttl.sh}/${OWNER:-welteki}/transient-chaos:${TAG:-0.0.1}
     labels:
       com.openfaas.scale.min: "1"
       com.openfaas.scale.max: "1"
@@ -47,7 +47,7 @@ functions:
   variable-inflight:
     lang: golang-middleware
     handler: ./variable-inflight
-    image: ttl.sh/welteki/variable-inflight:0.0.5
+    image: ${REGISTRY:-ttl.sh}/${OWNER:-welteki}/variable-inflight:${TAG:-0.0.5}
     annotations:
       com.openfaas.ready.http.path: "/_/ready"
     labels:
@@ -62,7 +62,7 @@ functions:
   overload-simulator:
     lang: golang-middleware
     handler: ./overload-simulator
-    image: ttl.sh/welteki/overload-simulator:0.0.4
+    image: ${REGISTRY:-ttl.sh}/${OWNER:-welteki}/overload-simulator:${TAG:-0.0.4}
     annotations:
       com.openfaas.ready.http.path: "/ready"
     labels:
