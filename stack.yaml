@@ -59,6 +59,17 @@ functions:
       read_timeout: 1h1m
       status_code: "429"
 
+  retry-after:
+    lang: golang-middleware
+    handler: ./retry-after
+    image: ${REGISTRY:-ttl.sh}/${OWNER:-welteki}/retry-after:${TAG:-0.0.1}
+    labels:
+      com.openfaas.scale.min: "1"
+      com.openfaas.scale.max: "1"
+    environment:
+      fail_count: "3"
+      retry_after_secs: ""
+
   overload-simulator:
     lang: golang-middleware
     handler: ./overload-simulator

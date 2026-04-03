@@ -7,6 +7,7 @@ A collection of utility functions for testing and demonstrating OpenFaaS capabil
 | [overload-simulator](#overload-simulator) | Simulates an overloaded function that rejects requests when inflight request thresholds are exceeded |
 | [variable-inflight](#variable-inflight) | Simulates oscillating inflight capacity using a sine wave with ready-check-based load shedding |
 | [transient-chaos](#transient-chaos) | Simulates transient failures that succeed after a configurable number of retries |
+| [retry-after](#retry-after) | Returns 429 with an optional Retry-After header for a configurable number of invocations before succeeding |
 | [async-load](#async-load) | Generates continuous async invocation load via self-referencing callbacks |
 | [callback-counter](#callback-counter) | Counts callback invocations for measuring async throughput |
 | [ndjson](#ndjson) | Streams newline-delimited JSON events at 1 event/second |
@@ -173,6 +174,52 @@ curl -H "X-Call-ID: test-1" http://127.0.0.1:8080/function/transient-chaos
 
 # Third call succeeds
 curl -H "X-Call-ID: test-1" http://127.0.0.1:8080/function/transient-chaos
+```
+
+### retry-after
+
+Returns a `429 Too Many Requests` response with an optional `Retry-After` header for a configurable number of invocations, then succeeds with `200 OK`. The invocation counter can be reset at runtime, making it possible to repeat scenarios without redeploying.
+
+**Use Cases:**
+- Testing `Retry-After` header support in the queue-worker
+- Simulating rate-limited APIs that advertise a retry delay
+- Validating minimum retry wait clamping behaviour
+
+**Configuration (Environment Variables):**
+
+- `fail_count` (default: `3`): Number of invocations that return 429 before the function starts returning 200
+- `retry_after_secs` (default: none): Value of the `Retry-After` header to include on 429 responses. When empty, the header is omitted and the queue-worker falls back to exponential backoff
+
+**Endpoints:**
+
+- `POST /`: Main handler
+  - Returns `429 Too Many Requests` for the first `fail_count` invocations, with `Retry-After` set if configured
+  - Returns `200 OK` for all subsequent invocations
+- `POST /_/reset`: Resets the invocation counter to zero so scenarios can be repeated
+
+**Example Usage:**
+
+```bash
+# Deploy the function
+faas-cli deploy -f stack.yaml --filter retry-after
+
+# Invoke asynchronously — the queue-worker will retry on 429
+curl -i http://127.0.0.1:8080/async-function/retry-after -d ""
+
+# Watch the queue-worker logs
+kubectl logs deploy/queue-worker -n openfaas -f
+
+# Reset the counter between test runs
+curl -X POST http://127.0.0.1:8080/function/retry-after/_/reset
+```
+
+**Example Configuration:**
+
+```yaml
+retry-after:
+  environment:
+    fail_count: "5"           # Fail 5 times before succeeding
+    retry_after_secs: "10"    # Advertise a 10-second retry delay
 ```
 
 ### async-load
