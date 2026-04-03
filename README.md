@@ -2,6 +2,16 @@
 
 A collection of utility functions for testing and demonstrating OpenFaaS capabilities.
 
+| Function | Description |
+|---|---|
+| [overload-simulator](#overload-simulator) | Simulates an overloaded function that rejects requests when inflight request thresholds are exceeded |
+| [variable-inflight](#variable-inflight) | Simulates oscillating inflight capacity using a sine wave with ready-check-based load shedding |
+| [transient-chaos](#transient-chaos) | Simulates transient failures that succeed after a configurable number of retries |
+| [async-load](#async-load) | Generates continuous async invocation load via self-referencing callbacks |
+| [callback-counter](#callback-counter) | Counts callback invocations for measuring async throughput |
+| [ndjson](#ndjson) | Streams newline-delimited JSON events at 1 event/second |
+| [ping](#ping) | Simple ping function for basic connectivity testing |
+
 ## Functions
 
 ### overload-simulator
