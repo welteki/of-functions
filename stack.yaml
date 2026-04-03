@@ -47,7 +47,7 @@ functions:
   variable-inflight:
     lang: golang-middleware
     handler: ./variable-inflight
-    image: ttl.sh/welteki/variable-inflight:0.0.4
+    image: ttl.sh/welteki/variable-inflight:0.0.5
     annotations:
       com.openfaas.ready.http.path: "/_/ready"
     labels:
@@ -57,11 +57,12 @@ functions:
       exec_timeout: 1h
       write_timeout: 1h1m
       read_timeout: 1h1m
+      status_code: "429"
 
   overload-simulator:
     lang: golang-middleware
     handler: ./overload-simulator
-    image: ttl.sh/welteki/overload-simulator:0.0.1
+    image: ttl.sh/welteki/overload-simulator:0.0.4
     annotations:
       com.openfaas.ready.http.path: "/ready"
     labels:
@@ -70,5 +71,6 @@ functions:
     environment:
       inflight_threshold: "5"
       failure_mode: "constant"
+      status_code: "500"
       sleep_duration: "100ms"
       use_ready_endpoint: "true"

@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -23,7 +24,8 @@ var (
 		Period:      time.Minute * 2,
 	}
 
-	getMaxInfligtht func() float64
+	getMaxInfligtht     func() float64
+	thresholdStatusCode int
 
 	inflight int
 	ready    bool = true
@@ -46,6 +48,15 @@ func init() {
 		if err != nil {
 			log.Fatalf("Error parsing sleep_duration environment variable: %v", err)
 		}
+	}
+
+	thresholdStatusCode = http.StatusTooManyRequests // default value (429)
+	if val, ok := os.LookupEnv("status_code"); ok && len(val) > 0 {
+		statusCode, err := strconv.Atoi(val)
+		if err != nil {
+			log.Fatalf("Error parsing status_code environment variable: %v", err)
+		}
+		thresholdStatusCode = statusCode
 	}
 
 	getMaxInfligtht = Oscillator(float64(config.MinInflight), float64(config.MaxInflight), config.Period)
@@ -76,8 +87,8 @@ func variableInflight(w http.ResponseWriter, r *http.Request) {
 		ready = false
 		mu.Unlock()
 
-		w.WriteHeader(http.StatusTooManyRequests)
-		fmt.Fprintf(w, "Too many requests")
+		w.WriteHeader(thresholdStatusCode)
+		fmt.Fprintf(w, "Threshold exceeded: inflight=%d, max=%.0f", inflight, maxInflight)
 		return
 	} else if !ready {
 		mu.Lock()
