@@ -18,8 +18,9 @@ Simulates an overloaded function that starts returning errors when inflight requ
 
 - `inflight_threshold` (default: `5`): Number of concurrent requests before overload simulation begins
 - `failure_mode` (default: `constant`): How failures are triggered when over threshold
-  - `constant`: Returns 500 errors 100% of the time when over threshold
-  - `intermittent`: Returns 500 errors 50% of the time when over threshold
+  - `constant`: Returns errors 100% of the time when over threshold
+  - `intermittent`: Returns errors 50% of the time when over threshold
+- `status_code` (default: `500`): HTTP status code to return when threshold is exceeded
 - `sleep_duration` (default: `100ms`): Time each request takes to process
 - `use_ready_endpoint` (default: `false`): Enable ready endpoint for load shedding
   - When `true`, the `/_/ready` endpoint returns 503 Service Unavailable when inflight requests reach the threshold
@@ -29,7 +30,7 @@ Simulates an overloaded function that starts returning errors when inflight requ
 
 - `POST /`: Main handler that simulates processing
   - Returns 200 OK when under threshold or passes intermittent check
-  - Returns 500 Internal Server Error when overloaded
+  - Returns configured status code (default 500) when overloaded
   - Accepts `X-Sleep` header to override sleep duration per request
 - `GET /_/config`: Returns current configuration and inflight request count
 - `GET /ready`: Health check endpoint (requires OpenFaaS ready check annotation)
@@ -67,6 +68,7 @@ overload-simulator:
   environment:
     inflight_threshold: "10"        # Increase threshold to 10 concurrent requests
     failure_mode: "constant"        # Always fail when over threshold
+    status_code: "429"              # Return 429 Too Many Requests instead of 500
     sleep_duration: "500ms"         # Slower processing time
     use_ready_endpoint: "true"      # Enable ready endpoint load shedding
 ```
