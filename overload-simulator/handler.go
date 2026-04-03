@@ -18,9 +18,10 @@ var (
 
 var (
 	// Configuration from environment variables
-	inflightThreshold int
-	failureMode       string // "constant" or "intermittent"
-	useReadyEndpoint  bool   // Enable ready endpoint for load shedding
+	inflightThreshold   int
+	failureMode         string // "constant" or "intermittent"
+	useReadyEndpoint    bool   // Enable ready endpoint for load shedding
+	thresholdStatusCode int    // HTTP status code to return when threshold is exceeded
 
 	inflight int
 	mux      = http.NewServeMux()
@@ -73,8 +74,18 @@ func init() {
 		useReadyEndpoint = useReady
 	}
 
-	log.Printf("Overload Simulator initialized with threshold=%d, mode=%s, sleep=%s, use_ready=%v",
-		inflightThreshold, failureMode, defaultDuration, useReadyEndpoint)
+	// Read threshold_status_code from environment variable
+	thresholdStatusCode = http.StatusInternalServerError // default value (500)
+	if val, ok := os.LookupEnv("status_code"); ok && len(val) > 0 {
+		statusCode, err := strconv.Atoi(val)
+		if err != nil {
+			log.Fatalf("Error parsing status_code environment variable: %v", err)
+		}
+		thresholdStatusCode = statusCode
+	}
+
+	log.Printf("Overload Simulator initialized with threshold=%d, mode=%s, sleep=%s, use_ready=%v, status_code=%d",
+		inflightThreshold, failureMode, defaultDuration, useReadyEndpoint, thresholdStatusCode)
 
 	mux.HandleFunc("GET /_/config", getConfig)
 	mux.HandleFunc("GET /ready", getReady)
@@ -86,11 +97,12 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 type ConfigResponse struct {
-	InflightThreshold int           `json:"inflight_threshold"`
-	FailureMode       string        `json:"failure_mode"`
-	SleepDuration     time.Duration `json:"sleep_duration"`
-	CurrentInflight   int           `json:"current_inflight"`
-	UseReadyEndpoint  bool          `json:"use_ready_endpoint"`
+	InflightThreshold   int           `json:"inflight_threshold"`
+	FailureMode         string        `json:"failure_mode"`
+	SleepDuration       time.Duration `json:"sleep_duration"`
+	CurrentInflight     int           `json:"current_inflight"`
+	UseReadyEndpoint    bool          `json:"use_ready_endpoint"`
+	ThresholdStatusCode int           `json:"threshold_status_code"`
 }
 
 func getConfig(w http.ResponseWriter, r *http.Request) {
@@ -102,15 +114,16 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	config := ConfigResponse{
-		InflightThreshold: inflightThreshold,
-		FailureMode:       failureMode,
-		SleepDuration:     defaultDuration,
-		CurrentInflight:   currentInflight,
-		UseReadyEndpoint:  useReadyEndpoint,
+		InflightThreshold:   inflightThreshold,
+		FailureMode:         failureMode,
+		SleepDuration:       defaultDuration,
+		CurrentInflight:     currentInflight,
+		UseReadyEndpoint:    useReadyEndpoint,
+		ThresholdStatusCode: thresholdStatusCode,
 	}
 
-	fmt.Fprintf(w, `{"inflight_threshold":%d,"failure_mode":"%s","sleep_duration":"%s","current_inflight":%d,"use_ready_endpoint":%v}`,
-		config.InflightThreshold, config.FailureMode, config.SleepDuration, config.CurrentInflight, config.UseReadyEndpoint)
+	fmt.Fprintf(w, `{"inflight_threshold":%d,"failure_mode":"%s","sleep_duration":"%s","current_inflight":%d,"use_ready_endpoint":%v,"threshold_status_code":%d}`,
+		config.InflightThreshold, config.FailureMode, config.SleepDuration, config.CurrentInflight, config.UseReadyEndpoint, config.ThresholdStatusCode)
 }
 
 func getReady(w http.ResponseWriter, r *http.Request) {
@@ -138,10 +151,38 @@ func getReady(w http.ResponseWriter, r *http.Request) {
 }
 
 func overloadSimulator(w http.ResponseWriter, r *http.Request) {
-	// Increment inflight counter
+	// Check threshold before incrementing (hard limit)
 	mu.Lock()
-	inflight++
 	currentInflight := inflight
+
+	// Check if we're at or over the threshold
+	if currentInflight >= inflightThreshold {
+		mu.Unlock()
+
+		shouldFail := false
+
+		switch failureMode {
+		case ModeConstant:
+			// Always fail when at threshold
+			shouldFail = true
+		case ModeIntermittent:
+			// Fail 50% of the time when at threshold
+			shouldFail = random.Float64() < 0.5
+		}
+
+		if shouldFail {
+			log.Printf("Rejecting request at threshold (inflight: %d, threshold: %d, mode: %s)",
+				currentInflight, inflightThreshold, failureMode)
+			w.WriteHeader(thresholdStatusCode)
+			fmt.Fprintf(w, "Simulated overload: inflight=%d, threshold=%d, mode=%s",
+				currentInflight, inflightThreshold, failureMode)
+			return
+		}
+	}
+
+	// Increment inflight counter (only if under threshold or passed intermittent check)
+	inflight++
+	currentInflight = inflight
 	mu.Unlock()
 
 	// Always decrement inflight counter when done
@@ -151,30 +192,7 @@ func overloadSimulator(w http.ResponseWriter, r *http.Request) {
 		mu.Unlock()
 	}()
 
-	log.Printf("Current inflight: %d (threshold: %d)", currentInflight, inflightThreshold)
-
-	// Check if we've exceeded the threshold
-	if currentInflight > inflightThreshold {
-		shouldFail := false
-
-		switch failureMode {
-		case ModeConstant:
-			// Always fail when over threshold
-			shouldFail = true
-		case ModeIntermittent:
-			// Fail 50% of the time when over threshold
-			shouldFail = random.Float64() < 0.5
-		}
-
-		if shouldFail {
-			log.Printf("Simulating overload failure (inflight: %d, threshold: %d, mode: %s)",
-				currentInflight, inflightThreshold, failureMode)
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "Simulated overload: inflight=%d, threshold=%d, mode=%s",
-				currentInflight, inflightThreshold, failureMode)
-			return
-		}
-	}
+	log.Printf("Processing request (inflight: %d, threshold: %d)", currentInflight, inflightThreshold)
 
 	// Process the request successfully
 	sleepDuration := defaultDuration
