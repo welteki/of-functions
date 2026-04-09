@@ -70,6 +70,32 @@ functions:
       fail_count: "3"
       retry_after_secs: ""
 
+  # Phase 1: baseline - default /dev/shm (64Mi, Kubernetes default, no volume override).
+  # Chromium uses /dev/shm for inter-process shared memory automatically.
+  playwright-bench-shm:
+    lang: dockerfile
+    handler: ./playwright-bench
+    image: ${REGISTRY:-ttl.sh}/${OWNER:-welteki}/playwright-bench:${TAG:-0.0.1}
+    environment:
+      PLAYWRIGHT_DATA_ON_SHM: "false"
+      exec_timeout: 120s
+      write_timeout: 130s
+      read_timeout: 130s
+
+  # Phase 2: large /dev/shm (1Gi emptyDir:Memory) + Chromium user-data dir
+  # routed to /dev/shm. PLAYWRIGHT_DATA_ON_SHM=true adds a persistent context
+  # with userDataDir=/dev/shm/chromium-data so Chromium's profile and cache
+  # also live in RAM, not just its inter-process shared memory.
+  playwright-bench-shm-data:
+    lang: dockerfile
+    handler: ./playwright-bench
+    image: ${REGISTRY:-ttl.sh}/${OWNER:-welteki}/playwright-bench:${TAG:-0.0.2}
+    environment:
+      PLAYWRIGHT_DATA_ON_SHM: "true"
+      exec_timeout: 120s
+      write_timeout: 130s
+      read_timeout: 130s
+
   overload-simulator:
     lang: golang-middleware
     handler: ./overload-simulator

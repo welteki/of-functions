@@ -1,0 +1,9 @@
+{
+  "name": "playwright-bench",
+  "version": "1.0.0",
+  "description": "OpenFaaS function to benchmark Playwright/Chromium performance across /dev/shm configurations",
+  "main": "index.js",
+  "dependencies": {
+    "playwright": "1.52.0"
+  }
+}
